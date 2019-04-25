@@ -165,17 +165,17 @@ curlMultiObjCmd (ClientData clientData, Tcl_Interp *interp,
     switch(tableIndex) {
         case 0:
 /*            fprintf(stdout,"Multi add handle\n"); */
-            errorCode=curlAddMultiHandle(interp,curlMultiData->mcurl,objv[2]);
+            errorCode=curlAddMultiHandle(interp,curlMultiData,objv[2]);
             return curlReturnCURLMcode(interp,errorCode);
             break;
         case 1:
 /*            fprintf(stdout,"Multi remove handle\n"); */
-            errorCode=curlRemoveMultiHandle(interp,curlMultiData->mcurl,objv[2]);
+            errorCode=curlRemoveMultiHandle(interp,curlMultiData,objv[2]);
             return curlReturnCURLMcode(interp,errorCode);
             break;
         case 2:
 /*            fprintf(stdout,"Multi perform\n"); */
-            errorCode=curlMultiPerform(interp,curlMultiData->mcurl);
+            errorCode=curlMultiPerform(interp,curlMultiData);
             return errorCode;
             break;
         case 3:
@@ -184,7 +184,7 @@ curlMultiObjCmd (ClientData clientData, Tcl_Interp *interp,
             break;
         case 4:
 /*            fprintf(stdout,"Multi getInfo\n"); */
-            curlMultiGetInfo(interp,curlMultiData->mcurl);
+            curlMultiGetInfo(interp,curlMultiData);
             break;
         case 5:
 /*            fprintf(stdout,"Multi activeTransfers\n"); */
@@ -211,7 +211,7 @@ curlMultiObjCmd (ClientData clientData, Tcl_Interp *interp,
  *
  *  Parameter:
  *      interp: Pointer to the interpreter we are using.
- *      curlMultiHandle: The handle into which we will add the easy one.
+ *      multiDataPtr: Multi handle we are using.
  *      objvPtr: The Tcl object with the name of the easy handle.
  *
  * Results:
@@ -220,12 +220,12 @@ curlMultiObjCmd (ClientData clientData, Tcl_Interp *interp,
  *----------------------------------------------------------------------
  */
 CURLMcode
-curlAddMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandlePtr
-        ,Tcl_Obj *objvPtr) {
+curlAddMultiHandle(Tcl_Interp *interp,
+                   struct curlMultiObjData *multiDataPtr,
+                   Tcl_Obj *objvPtr) {
 
     struct curlObjData        *curlDataPtr;
     CURLMcode                  errorCode;
-
 
     curlDataPtr=curlGetEasyHandle(interp,objvPtr);
 
@@ -236,9 +236,9 @@ curlAddMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandlePtr
         return TCL_ERROR;
     }
 
-    errorCode=curl_multi_add_handle(curlMultiHandlePtr,curlDataPtr->curl);
+    errorCode=curl_multi_add_handle(multiDataPtr->mcurl,curlDataPtr->curl);
 
-    curlEasyHandleListAdd(curlMultiHandlePtr,curlDataPtr->curl
+    curlEasyHandleListAdd(multiDataPtr,curlDataPtr->curl
             ,Tcl_GetString(objvPtr));
 
     return errorCode;
@@ -253,7 +253,7 @@ curlAddMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandlePtr
  *
  *  Parameter:
  *      interp: Pointer to the interpreter we are using.
- *      curlMultiHandle: The handle into which we will add the easy one.
+ *      multiDataPtr: Multi handle we are using.
  *      objvPtr: The Tcl object with the name of the easy handle.
  *
  * Results:
@@ -262,14 +262,15 @@ curlAddMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandlePtr
  *----------------------------------------------------------------------
  */
 CURLMcode
-curlRemoveMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandle
-        ,Tcl_Obj *objvPtr) {
+curlRemoveMultiHandle(Tcl_Interp *interp,
+                      struct curlMultiObjData *multiDataPtr,
+                      Tcl_Obj *objvPtr) {
     struct curlObjData        *curlDataPtr;
     CURLMcode                  errorCode;
 
     curlDataPtr=curlGetEasyHandle(interp,objvPtr);
-    errorCode=curl_multi_remove_handle(curlMultiHandle,curlDataPtr->curl);
-    curlEasyHandleListRemove(curlMultiHandle,curlDataPtr->curl);
+    errorCode=curl_multi_remove_handle(multiDataPtr->mcurl,curlDataPtr->curl);
+    curlEasyHandleListRemove(multiDataPtr,curlDataPtr->curl);
 
     curlCloseFiles(curlDataPtr);
     curlResetPostData(curlDataPtr);
@@ -291,7 +292,7 @@ curlRemoveMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandle
  *
  *  Parameter:
  *      interp: Pointer to the interpreter we are using.
- *      curlMultiHandle: The handle of the transfer to update.
+ *      multiDataPtr: Multi handle we are using.
  *      objvPtr: The Tcl object with the name of the easy handle.
  *
  * Results:
@@ -299,13 +300,13 @@ curlRemoveMultiHandle(Tcl_Interp *interp,CURLM *curlMultiHandle
  *----------------------------------------------------------------------
  */
 int
-curlMultiPerform(Tcl_Interp *interp,CURLM *curlMultiHandlePtr) {
+curlMultiPerform(Tcl_Interp *interp,struct curlMultiObjData *multiDataPtr) {
 
     CURLMcode        errorCode;
     int              runningTransfers;
 
     for (errorCode=-1;errorCode<0;) {   
-        errorCode=curl_multi_perform(curlMultiHandlePtr,&runningTransfers);
+        errorCode=curl_multi_perform(multiDataPtr->mcurl,&runningTransfers);
     }
 
     if (errorCode==0) {
@@ -364,7 +365,7 @@ curlMultiDeleteCmd(ClientData clientData) {
  *
  * Parameter:
  *    interp: The Tcl interpreter we are using, mainly to report errors.
- *    curlMultiHandlePtr: Pointer to the multi handle of the transfer.
+ *    multiDataPtr: Multi handle we are using.
  *
  * Results:
  *    Standard Tcl codes. The Tcl command will return a list with the
@@ -372,12 +373,12 @@ curlMultiDeleteCmd(ClientData clientData) {
  *----------------------------------------------------------------------
  */
 int
-curlMultiGetInfo(Tcl_Interp *interp,CURLM *curlMultiHandlePtr) {
+curlMultiGetInfo(Tcl_Interp *interp,struct curlMultiObjData *multiDataPtr) {
     struct CURLMsg        *multiInfo;
     int                    msgLeft;
     Tcl_Obj               *resultPtr;
 
-    multiInfo=curl_multi_info_read(curlMultiHandlePtr, &msgLeft);
+    multiInfo=curl_multi_info_read(multiDataPtr->mcurl, &msgLeft);
     resultPtr=Tcl_NewListObj(0,(Tcl_Obj **)NULL); 
     if (multiInfo==NULL) {
         Tcl_ListObjAppendElement(interp,resultPtr,Tcl_NewStringObj("",-1));
@@ -386,7 +387,7 @@ curlMultiGetInfo(Tcl_Interp *interp,CURLM *curlMultiHandlePtr) {
         Tcl_ListObjAppendElement(interp,resultPtr,Tcl_NewIntObj(0));
     } else {
         Tcl_ListObjAppendElement(interp,resultPtr,
-            Tcl_NewStringObj(curlGetEasyName(curlMultiHandlePtr,multiInfo->easy_handle),-1));
+            Tcl_NewStringObj(curlGetEasyName(multiDataPtr,multiInfo->easy_handle),-1));
         Tcl_ListObjAppendElement(interp,resultPtr,Tcl_NewIntObj(multiInfo->msg));
         Tcl_ListObjAppendElement(interp,resultPtr,Tcl_NewIntObj(multiInfo->data.result));
         Tcl_ListObjAppendElement(interp,resultPtr,Tcl_NewIntObj(msgLeft));
@@ -882,11 +883,10 @@ int
 curlEventProc(Tcl_Event *evPtr,int flags) {
     struct curlMultiObjData   *curlMultiData
             =(struct curlMultiObjData *)((struct curlEvent *)evPtr)->curlMultiData;
-    CURLMcode                  errorCode;
     Tcl_Obj                   *tclCommandObjPtr;
     char                       tclCommand[300];
 
-    errorCode=curl_multi_perform(curlMultiData->mcurl,&curlMultiData->runningTransfers);
+    curl_multi_perform(curlMultiData->mcurl,&curlMultiData->runningTransfers);
     if (curlMultiData->runningTransfers==0) {
         if (curlMultiData->postCommand!=NULL) {
             snprintf(tclCommand,299,"%s",curlMultiData->postCommand);
