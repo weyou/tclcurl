@@ -1,12 +1,26 @@
-# -*- Makefile -*- for MingW
-# - Install msys2 + mingw
-# - Launch the CLI window of msys2
-# - Install the mingw tcl and libcurl with pacman
-#      Eg. pacman -S mingw64/mingw-w64-x86_64-tcl
-#          pacman -S mingw64/mingw-w64-x86_64-curl
+# -*- Makefile -*- for MinGW
+# - Install MSYS2 + MinGW
+# - Launch the CLI window of MSYS2. 
+#      To build 32bit things, choose MSYS2 MinGW 32-bit 
+#      To build 64bit things, choose MSYS2 MinGW 64-bit 
+# - Install the MinGW tcl and libcurl with pacman coammnd
+#      For 32bit
+#      $ pacman -S mingw-w64-i686-tcl
+#      $ pacman -S mingw-w64-i686-curl 
+#      For 64bit
+#      $ pacman -S mingw-w64-x86_64-tcl
+#      $ pacman -S mingw-w64-x86_64-curl
+#   The libcurl installation is just for installing the dependent libraries
+#   We don't need the libcurl from pacman, will built it as a STATIC lib
+#   from source.
+# - Download libcurl source from https://curl.haxx.se/download.html and build:
+#		$ ./buildconf
+#		$ CPPFLAGS="-DNGHTTP2_STATICLIB" LDFLAGS="-static" PKG_CONFIG="pkg-config --static" ./configure --enable-static --disable-shared --without-brotli ...
+#       $ make curl_LDFLAGS=-all-static V=1
+#		# make curl_LDFLAGS=-all-static install V=1
 # - Go to the location of this file
 # - Just type "make" command. 
-# - The tclcurl package will be generated in folder: tclcurl$(VERSION).dll 
+# - The TclCurl package will be generated in folder: tclcurl$(VERSION).dll 
 
 
 CC      =gcc
